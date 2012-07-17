@@ -1,0 +1,50 @@
+div.hero-unit
+	#arena
+		h1= title
+		p Practice your math skills and compete with others!
+		button#startGame.btn.disabled.btn-primary.btn-large.span2(type='submit') Loading...
+#stat
+	.progress.progress-striped.active
+		#pbar.bar(style='width:0%')
+div#otherPlayers.row
+
+div.row
+	.span6
+		h2 Settings		
+		form#settingsForm.form-horizontal	
+			.control-group
+				label.control-label Operations
+				.controls
+					label.radio
+						input(type='radio',checked='checked',value='option1',name='operations') 
+						|+,- only 
+					label.radio
+						input(type='radio',value='option2',name='operations') 
+						|*,/ only 
+					label.radio
+						input(type='radio',value='option3',name='operations') 
+						|+,-,*,/ 
+			.control-group
+				label.control-label Difficulty
+				.controls
+					label.radio
+						input(type='radio',checked='checked',value='easy',name='difficulty') 
+						|Easy
+					label.radio
+						input(type='radio',value='medium',name='difficulty') 
+						|Medium 
+					label.radio
+						input(type='radio',value='hard',name='difficulty') 
+						|Hard 
+			.control-group
+				label.control-label Compete Mode
+				.controls
+					label.checkbox
+						input(type='checkbox',name='mode')
+						|Play with other Math Quest Heroes
+					label.text
+						input(type='text', placeholder="Your Name?", name='playerName')
+	div.span6
+		h2 Hero Board
+		p Scores - Hello world!
+		
