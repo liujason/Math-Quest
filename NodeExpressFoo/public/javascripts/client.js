@@ -67,7 +67,7 @@ $(document).ready(function(){
 	});
 	$('input[name=mode]','#settingsForm').click(function(){
 		if($(this).prop('checked')){
-			$('#startGame').html('Ready<i class="icon-pencil icon-white"></i>');
+			$('#startGame').html('Join a game');
 		}else{
 			$('#startGame').html('Start<i class="icon-pencil icon-white"></i>');
 		}
