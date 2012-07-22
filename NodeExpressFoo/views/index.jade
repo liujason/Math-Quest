@@ -2,7 +2,7 @@ div.hero-unit
 	#arena
 		h1= title
 		p Practice your math skills and compete with others!
-		button#startGame.btn.disabled.btn-primary.btn-large.span2(type='submit') Loading...
+		button#mainButton.btn.disabled.btn-primary.btn-large.span2(type='submit') Loading...
 #stat
 	.progress.progress-striped.active
 		#pbar.bar(style='width:0%')
@@ -31,8 +31,8 @@ div.row
 						input(type='radio',checked='checked',value='easy',name='difficulty') 
 						|Easy
 					label.radio
-						input(type='radio',value='medium',name='difficulty') 
-						|Medium 
+						input(type='radio',value='normal',name='difficulty') 
+						|Normal 
 					label.radio
 						input(type='radio',value='hard',name='difficulty') 
 						|Hard 
