@@ -51,14 +51,14 @@ io.sockets.on('connection', function(socket){
 	});
 	socket.on('newGame', function(data){
 		console.log(data);
-		var quest= generateQuest(data.operations, data.difficulty);
+		var quest= generateQuest(data.difficulty);
 		quest.correctCount=0;
 		quest.gameLength=data.gameLength;
 		quest.operations=data.operations;
 		quest.difficulty=data.difficulty;
 		quest.startTime=new Date().getTime()/1000;
 		quest.competeMode=data.competeMode;
-		quest.playerName=data.playerName;
+		quest.playerName=data.playerName.replace(/&/g, "&amp;").replace(/>/g, "&gt;").replace(/</g, "111").replace(/"/g, "&quot;");
 		socket.set('game',quest);
 		socket.emit('quest', {quest:quest.quest});
 	});
@@ -108,9 +108,9 @@ io.sockets.on('connection', function(socket){
 		player.socket=socket;
 		multiPlayer.removePlayer(player);
 	});
-	socket.on('disconnect', function(player){
-		player.socket=socket;
-		multiPlayer.removePlayer(player);
+	socket.on('disconnect', function(){
+		p={socket:socket};
+		multiPlayer.removePlayer(p);
 	});
 	
 });
@@ -126,7 +126,7 @@ var multiPlayer={
 		if(p1){
 			this.removePlayer(p1);
 		}
-		var p1=new player(p.name, p.socket.id, p.socket, p.difficulty);
+		var p1=new player(p.name.replace(/&/g, "&amp;").replace(/>/g, "&gt;").replace(/</g, "&lt;").replace(/"/g, "&quot;").substring(0,30), p.socket.id, p.socket, p.difficulty);
 		gameLobby.freePlayers.push(p1);
 		gameLobby.allPlayers.push(p1);
 		console.log(gameLobby.freePlayers.length+" free players");
@@ -186,27 +186,32 @@ gameLobby={
 		_.each(this.freePlayers, function(player, key){
 			console.log('freePlayers: '+player.difficulty);
 			console.log(gameLobby.gameRoomEasy.length);
+			var room;
 			switch(player.difficulty){
 			case 'easy':
-				var room=_.find(gameLobby.gameRoomEasy, function(r){
-					console.log(r.status);
-					console.log(r.players.length);
-					console.log(r.max);
+				room=_.find(gameLobby.gameRoomEasy, function(r){
 					return r.status==0 && r.players.length<=r.max;
 				});
-				if(room==null){
-					//room Full! TODO: return room full msg.
-				}else{
-					room.add(player);
-					player.gameRoom=room;
-				};
-				gameLobby.freePlayers.splice(key,1);//remove the player after adding to a room.
 				break;
 			case 'normal':
+				room=_.find(gameLobby.gameRoomNormal, function(r){
+					return r.status==0 && r.players.length<=r.max;
+				});
 				break;
 			case 'hard':
+				room=_.find(gameLobby.gameRoomHard, function(r){
+					return r.status==0 && r.players.length<=r.max;
+				});
 				break;
 			}
+			if(room==null){
+				//room Full! TODO: return room full msg.
+			}else{
+				room.add(player);
+				player.gameRoom=room;
+			};
+			gameLobby.freePlayers.splice(key,1);//remove the player after adding to a room.
+			
 		});
 		//if there is no free room, create one, assign the player to the room.
 	},
@@ -289,11 +294,16 @@ function gameRoom(difficulty){
 		this.status=0;
 		this.quests=[];
 		this.gameTime=this.maxTime;
+		var scores=[];
+		_.each(this.players, function(p,key){
+			scores.push({name:p.name, id:p.id,score:p.correctCount});
+		});
 		_.each(this.players, function(p,key){
 			p.questIndex=0;
 			p.ready=false;
 			p.correctCount=0;
-			p.socket.emit('gameEnded', {});
+			
+			p.socket.emit('gameEnded', {scores:scores});
 		});
 	};
 	//generates quests for the room.
@@ -303,7 +313,7 @@ function gameRoom(difficulty){
 			return this.quests[player.questIndex++].quest;
 		}else{
 			//if there is not enough quest in the queue, generate one.
-			var index=this.quests.push(generateQuest('operations',this.difficulty));
+			var index=this.quests.push(generateQuest(this.difficulty));
 			player.questIndex++;
 			return this.quests[index-1].quest;
 		};
@@ -330,36 +340,121 @@ player=function(name, id, socket, difficulty){
 	this.correctCount=0;
 };
 
-generateQuest=function(operations, difficulty){
-	if(difficulty==='easy'){
-		var num1=getRandomInt(0,10);
-		var num2=getRandomInt(0,10);
-		var op='+';
-		var answer=0;
+setInterval(function(){
+	var q=generateQuest('normal');
+	console.log(q.quest+' answer='+q.answer);
+},2000);
+
+generateQuest=function(difficulty){
+	var ls='';  //left side equation
+	var rs='';  //right side equation
+	var x=0; //answer
+	var os; //one step object {ls, rs, x}
+	var data;//return result
+	var oneStep=function(os){
+		var num=getRandomInt(1,10);
+		var isAfter=getRandomInt(0,1)==0?true:false; //add the new number before or after. true: x+2, false: 2+x
 		switch(getRandomInt(0,3)){
-		case 0:
-			op='+';
-			answer=num1+num2;
+		case 0: //+
+			if(isAfter){
+				os.ls+=' + '+num;
+				os.rs+=num;
+			}else{
+				os.ls=num + ' + '+os.ls;
+				os.rs=os.rs+num;
+			}
 			break;
-		case 1:
-			op='-';
-			answer=num1-num2;
+		case 1://-
+			if(isAfter){
+				os.ls+=' - '+num;
+				os.rs-=num;
+			}else{
+				os.ls=' - '+num+' + '+os.ls;
+				os.rs=os.rs-num;
+			}
 			break;
-		case 2:
-			op='*';
-			answer=num1*num2;
+		case 2://*
+			if(os.ls.trim()=='x'){
+				os.ls=' '+num+'x ';
+			}else{
+				if(isAfter){	
+					os.ls='( '+os.ls+') &times; '+num;
+				}else{
+					os.ls= num +' &times; ( '+os.ls+' )';
+				}
+			}
+			os.rs*=num;
 			break;
-		case 3:
-			op='/';
-			answer=num1/num2;
+		case 3:// /
+			if(isAfter){
+				os.ls+=' &divide; '+num;
+				//switch numbers so the answer will never be a fraction
+				os.rs*=num;
+				var numswitch=os.rs;
+				os.rs=os.x;
+				os.x=numswitch;
+			}else{
+				os.ls=(os.rs*num)+' &divide; '+os.ls;
+				os.rs=num;
+			}
+			
 			break;
 		}
-		var data={quest:num1+' '+((op=='/')?'&divide;':((op=='*')?'&times;':op))+' '+num2, answer:answer};
+		return os;
+	};
+	
+	if(difficulty==='easy'){
+		x=getRandomInt(-10,10);
+		ls='x';
+		rs=x;
+		os=oneStep({ls:ls, rs:rs, x:x});
+		ls=os.ls;
+		rs=os.rs;
+		x=os.x;
+		
+		data={quest:ls+' = '+rs, answer:x};
+		return data;
+	}else if(difficulty==='normal'){
+		x=getRandomInt(-20,20);
+		ls='x';
+		rs=x;
+		os=oneStep({ls:ls, rs:rs, x:x});
+		ls=os.ls;
+		rs=os.rs;
+		x=os.x;
+		os=oneStep({ls:ls, rs:rs, x:x});
+		ls=os.ls;
+		rs=os.rs;
+		x=os.x;
+		
+		data={quest:ls+' = '+rs, answer:x};
+		return data;
+		
+	}else if(difficulty==='hard'){
+		x=getRandomInt(-20,20);
+		ls='x';
+		rs=x;
+		os=oneStep({ls:ls, rs:rs, x:x});
+		ls=os.ls;
+		rs=os.rs;
+		x=os.x;
+		os=oneStep({ls:ls, rs:rs, x:x});
+		ls=os.ls;
+		rs=os.rs;
+		x=os.x;
+		os=oneStep({ls:ls, rs:rs, x:x});
+		ls=os.ls;
+		rs=os.rs;
+		x=os.x;
+		
+		data={quest:ls+' = '+rs, answer:x};
 		return data;
 	}
+	//one step of generating a function
 	
 };
 
+
 function getRandomInt (min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+    return Math.floor(Math.random()*(max-min+1))+min;
 }

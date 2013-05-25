@@ -5,18 +5,21 @@ var tick;
 var gameLength=10;
 $(document).ready(function(){
 	socket=io.connect(window.location.host);
+	//establish connection with the server
 	socket.on('connection', function(data){
 		if(data.msg==='pong'){
 			console.log('Server ready');
 			reset();
 		}
 	});
+	//server sends a quest challenge
 	socket.on('quest', function(data){
 		console.log(data);
 		gameState=2;
 		currentQuest=data;
 		populateArena();
 	});
+	//server sends a game result
 	socket.on('result', function(data){
 		console.log(data);
 		if(data.cheated){
@@ -55,68 +58,58 @@ $(document).ready(function(){
 	socket.on('gameStarted', function(data){
 		multiPlayer.gameStarted(data);
 	});
+	//other player answered a quest, server sent status
 	socket.on('playerStatus', function(player){
-		//other player answered quest, server sent status
 		multiPlayer.playerStatus(player);
 	});
+	//server sends how much time is left
 	socket.on('timeLeft', function(time){
 		//other player answered quest, server sent status
 		multiPlayer.updateTime(time.current, time.maxTime);
 	});
+	//game ends
 	socket.on('gameEnded', function(data){
 		multiPlayer.gameEnded(data);
 	});
+	//a player in the room is ready
 	socket.on('playerReady', function(data){
 		multiPlayer.playerReady(data);
-	});
-	$('input[name=mode]','#settingsForm').click(function(){
-		if($(this).prop('checked')){
-			$('#mainButton').html('Join a game');
-		}else{
-			$('#mainButton').html('Start<i class="icon-pencil icon-white"></i>');
-		}
-		
-	});
-	
-	
+	});	
+	$('input[name=playerName]','#settingsForm').prop('placeholder','Player'+getRandomInt(1000000,9999999));
 });
 
+//when a window is refreshed or closed, leave the room.
 $(window).bind('beforeunload',function(){
 	if(socket){
 		socket.emit('leaveRoom', {});
 	};
 });
 
+//resets game state, title text up on server connection.
 reset=function(){
 	gameState=0;
-	$('#arena').html('<h1>math-quest</h1><p>Practice your math skills and compete with others!</p><button id="mainButton" type="submit" class="btn btn-primary btn-large span2">Start<i class="icon-pencil icon-white"></i></button>');
+	$('#arena').html('<h1>math-quest</h1><p>Practice your math skills and compete with others!</p><button id="mainButton" type="submit" class="btn btn-primary btn-large span2">Join a game<i class="icon-pencil icon-white"></i></button>');
 	initStartButton();
 	$('#pbar').width(0);
+	$('#otherPlayers').hide(500, function(){
+		$('#otherPlayers').empty();
+	});
 	
 };
 
 initStartButton=function(){
 	$('#mainButton').unbind("click").click(function(){
-		if($('input[name=mode]','#settingsForm').prop('checked')){
+		if(socket && gameState==0){
 			multiPlayer.join();
-		}else{
-			if(socket && gameState==0){
-				socket.emit('newGame',{
-					operations:$('input[name=operations]:checked', '#settingsForm').val(),
-					difficulty:$('input[name=difficulty]:checked', '#settingsForm').val(),
-					competeMode:$('input[name=mode]','#settingsForm').prop('checked'),
-					playerName:$('input[name=playerName]','#settingsForm').val(),
-					gameLength:gameLength
-				});
-			}else if(socket&& gameState==3){
-				multiPlayer.ready();
-			}
-		};
+		}else if(socket&& gameState==3){
+			multiPlayer.ready();
+		}
 	});
 };
 
+//show the challenge quest. 
 populateArena=function(){
-	$('#arena').html('<h1>'+currentQuest.quest+' = <form class="well form-inline" id="answerForm" style="display:inline"><input type="text" id="answerInput" class="input-xlarge focused"></form></h1>');
+	$('#arena').html('<h1><span class="span7">'+currentQuest.quest+'</span> x=<form class="well form-inline" id="answerForm" style="display:inline"><input type="text" id="answerInput" class="span1 input-xlarge focused"></form></h1>');
 	$('#answerInput').focus();
 	$('#answerForm').submit(function(){
 		$('#answerInput').select();
@@ -124,17 +117,14 @@ populateArena=function(){
 		return false;
 	});
 	if(currentQuest.isCorrect==true){
-		$('#answerInput').css('borderColor','green');
+		$('#answerForm').css('background-color', '#aaffaa');
+		$('#answerForm').animate({backgroundColor:'#f5f5f5'},1000);
 	}else if(currentQuest.isCorrect==false){
-		$('#answerInput').css('borderColor','red');
+		$('#answerForm').css('background-color', '#ffaaaa');
+		$('#answerForm').animate({backgroundColor:'#f5f5f5'},1000);
 	}
 };
 
-gameOver=function(){
-	socket.emit('getResult');
-	$('#arena').html('<h1>Getting result...</h1>');
-	gameState=0;
-};
 
 /**
  * Multiplayer mode
@@ -155,9 +145,13 @@ var multiPlayer={
 	join:function(){
 		//Join a room
 		if(socket){
-			socket.emit('joinRoom', {name:$('input[name=playerName]','#settingsForm').val().length==0?'Player':$('input[name=playerName]','#settingsForm').val(),
+			socket.emit('joinRoom', {name:$('input[name=playerName]','#settingsForm').val().length==0?$('input[name=playerName]','#settingsForm').prop('placeholder'):$('input[name=playerName]','#settingsForm').val(),
 				difficulty:$('input[name=difficulty]:checked', '#settingsForm').val()});
 			$('#mainButton').html('Joining a room');
+			$('#otherPlayers').append('<div id="pid_me" class="span4 seat">'+
+					'<i class="icon-user"></i><h2>You</h2><div id="pid_me_quest"></div>'+
+					'<div id="pid_me_score"></div></div>');
+			$('#otherPlayers').show(500);
 		};
 	},
 	ready:function(){
@@ -168,17 +162,20 @@ var multiPlayer={
 		};
 	},
 	playerReady:function(player){
-		$('#pid'+player.id).css('background-color','green');
+		$('#pid'+player.id).stop().animate({backgroundColor:'#aaffaa'},1000);
 	},
 	leaveRoom:function(){
-		
+		gameState=0;
+		$('#otherPlayers').hide(500, function(){
+			$('#otherPlayers').empty();
+		});
 		if(socket){
 			socket.emit('leaveRoom', {});
 			$('#secButton').detach();
 			$('#mainButton').html('Join a game');
 			initStartButton();
 		};
-		$('#otherPlayers').empty();
+		
 	},
 	joinedRoom:function(players){
 		//joined a room
@@ -189,13 +186,13 @@ var multiPlayer={
 		});
 		$('#mainButton').after('<button id="secButton" class="btn btn-primary btn-large span2">Leave the room.</button>');
 		$('#secButton').unbind("click").click(function(){
-			multiPlayer.leaveRoom();
-			gameState=0;
+			multiPlayer.leaveRoom();			
 		});
 		
 	},
 	gameStarted:function(data){
 		gameState=1;
+		$('#pbar').css('width',$('#pbar').parent().width());
 		//prepare arena for quests, count down and wait for the first quest.
 		$('#arena').fadeOut(500, function(){
 			var i=3; //count down
@@ -205,14 +202,6 @@ var multiPlayer={
 				if(i==1){
 					gameState=2;
 					clearInterval(tick);
-//					populateArena();
-//					tick=setInterval(function(){
-//						$('#pbar').css('width',$('#pbar').width()+$('#pbar').parent().width()/gameLength);
-//						if($('#pbar').width()>=$('#pbar').parent().width()){
-//							clearInterval(tick);
-//							gameOver();
-//						}
-//					},1000);
 				}else{
 					i--;
 					$('#arena').html('<h1>'+i+'</h1>');
@@ -225,8 +214,8 @@ var multiPlayer={
 		//{id, isCorrect, quest, correctCount}
 		$('#pid'+player.id+'_quest').html(player.quest);
 		$('#pid'+player.id+'_score').html('Score '+player.correctCount);
-		$('#pid'+player.id).css('background-color',player.isCorrect?'green':'red');
-		$('#pid'+player.id).stop().animate({backgroundColor:'#fff'},1000);
+		$('#pid'+player.id).css('background-color',player.isCorrect?'#aaffaa':'#ffaaaa');
+		$('#pid'+player.id).stop().animate({backgroundColor:'#eee'},1000);
 	},
 	updateTime:function(current, max){
 		$('#pbar').css('width',$('#pbar').parent().width()*current/max);
@@ -234,9 +223,10 @@ var multiPlayer={
 	addPlayer: function(player){
 		console.log(player);
 		this.players.push(player);
-		$('#otherPlayers').append('<div id="pid'+player.id+'" class="span4">'+
-				'<h2>'+player.name+'</h2><div id="pid'+player.id+'_quest"></div>'+
+		$('#otherPlayers').append('<div style="display:none" id="pid'+player.id+'" class="span4 seat">'+
+				'<i class="icon-user"></i><h2>'+player.name+'</h2><div id="pid'+player.id+'_quest"></div>'+
 				'<div id="pid'+player.id+'_score">Score 0</div></div>');
+		$('#pid'+player.id).show(500);
 	}, 
 	removePlayer: function(player){
 		console.log(player.id+' left');
@@ -245,11 +235,27 @@ var multiPlayer={
 				this.players.splice(key,1);
 			};
 		});
-		$('#pid'+player.id).detach();
+		$('#pid'+player.id).hide(500, function(){
+			$('#pid'+player.id).detach();
+		});
+		
 	},
 	gameEnded:function(data){
 		$('#arena').html('<h1>Game Ended</h1>');
+		multiPlayer.joinedRoom();
+		$.each(data.scores, function(index,value){
+			console.log(value.name);
+			console.log(value.score);
+			console.log(value);
+			$('#arena').append('<div class="score">['+value.name+'] '+value.score+'</div>');
+			
+		});
+		$('#arena').append('<button id="mainButton" type="submit" class="btn btn-primary btn-large span2">Join a game<i class="icon-pencil icon-white"></i></button>');
+		multiPlayer.joinedRoom();
 	}
 };
 
+function getRandomInt (min, max) {
+    return Math.floor(Math.random()*(max-min+1))+min;
+}
 

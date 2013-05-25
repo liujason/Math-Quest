@@ -7,43 +7,27 @@ div.hero-unit
 	.progress.progress-striped.active
 		#pbar.bar(style='width:0%')
 div#otherPlayers.row
-
 div.row
 	.span6
 		h2 Settings		
 		form#settingsForm.form-horizontal	
 			.control-group
-				label.control-label Operations
-				.controls
-					label.radio
-						input(type='radio',checked='checked',value='option1',name='operations') 
-						|+,- only 
-					label.radio
-						input(type='radio',value='option2',name='operations') 
-						|*,/ only 
-					label.radio
-						input(type='radio',value='option3',name='operations') 
-						|+,-,*,/ 
-			.control-group
 				label.control-label Difficulty
 				.controls
 					label.radio
 						input(type='radio',checked='checked',value='easy',name='difficulty') 
-						|Easy
+						|Easy (One-step)
 					label.radio
 						input(type='radio',value='normal',name='difficulty') 
-						|Normal 
+						|Normal (Two-step, Combining, Distributive Property)
 					label.radio
 						input(type='radio',value='hard',name='difficulty') 
-						|Hard 
+						|Hard (in progress)
 			.control-group
-				label.control-label Compete Mode
+				label.control-label Your name
 				.controls
-					label.checkbox
-						input(type='checkbox',name='mode')
-						|Play with other Math Quest Heroes
 					label.text
-						input(type='text', placeholder="Your Name?", name='playerName')
+						input(type='text', placeholder="Player", name='playerName', maxlength=30)
 	div.span6
 		h2 Hero Board
 		p Scores - Hello world!
